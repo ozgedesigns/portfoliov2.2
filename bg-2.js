@@ -1,7 +1,4 @@
 (function() {
-  // Only run on desktop (above tablet breakpoint)
-  if (window.innerWidth < 992) return;
-  
   const canvas = document.querySelector('.fx-c');
   if (!canvas) return;
   
@@ -26,13 +23,6 @@
   let demoProgress = 0;
   
   function resize() {
-    // Stop everything if resized to tablet/mobile
-    if (window.innerWidth < 992) {
-      canvas.style.display = 'none';
-      return;
-    }
-    canvas.style.display = '';
-    
     const rect = parent.getBoundingClientRect();
     width = rect.width;
     height = rect.height;
@@ -77,7 +67,7 @@
     } else if (t < 0.66) {
       // Diagonal: top-right to bottom-left
       const segT = (t - 0.33) / 0.33;
-      const eased = segT; // linear for diagonal
+      const eased = segT;
       return {
         x: right - (right - left) * eased,
         y: top + (bottom - top) * eased
@@ -228,12 +218,6 @@
   }
   
   function draw() {
-    // Skip if on tablet/mobile
-    if (window.innerWidth < 992) {
-      requestAnimationFrame(draw);
-      return;
-    }
-    
     ctx.clearRect(0, 0, width, height);
     update();
     
@@ -251,7 +235,7 @@
   }
   
   document.addEventListener('mousemove', (e) => {
-    if (demoActive || window.innerWidth < 992) return;
+    if (demoActive) return;
     
     canvasRect = parent.getBoundingClientRect();
     
@@ -273,33 +257,29 @@
     }
   });
   
-  // Trigger when: 50% visible OR top passes viewport center
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        const rect = entry.boundingClientRect;
-        const viewportCenter = window.innerHeight / 2;
-        const topPassedCenter = rect.top <= viewportCenter;
-        const is50PercentVisible = entry.intersectionRatio >= 0.5;
-        
-        if (topPassedCenter || is50PercentVisible) {
-          setTimeout(startDemo, 300);
-        }
-      }
-    });
-  }, {
-    threshold: [0, 0.25, 0.5, 0.75, 1],
-    rootMargin: '0px'
-  });
+  // Check on scroll if canvas top has passed viewport center
+  function checkDemoTrigger() {
+    if (demoPlayed || demoActive) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const viewportCenter = window.innerHeight / 2;
+    
+    // Trigger when canvas top passes the viewport center
+    if (rect.top <= viewportCenter) {
+      setTimeout(startDemo, 300);
+    }
+  }
   
-  observer.observe(parent);
+  window.addEventListener('scroll', () => {
+    canvasRect = parent.getBoundingClientRect();
+    checkDemoTrigger();
+  });
   
   window.addEventListener('resize', resize);
-  window.addEventListener('scroll', () => {
-    if (window.innerWidth < 992) return;
-    canvasRect = parent.getBoundingClientRect();
-  });
   
   resize();
   draw();
+  
+  // Check on load in case already scrolled
+  checkDemoTrigger();
 })();
