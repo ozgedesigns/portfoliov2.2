@@ -1,6 +1,4 @@
 
-
-<script>
 (function() {
   const canvas = document.querySelector('.fx-c');
   if (!canvas) return;
@@ -247,4 +245,3 @@
   resize();
   draw();
 })();
-</script>
