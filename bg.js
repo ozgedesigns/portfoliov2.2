@@ -1,5 +1,4 @@
-Smart - trigger when the canvas itself hits the center of the viewport. Use rootMargin to shift the detection zone:
-javascript<script>
+
 (function() {
   const canvas = document.querySelector('.fx-c');
   if (!canvas) return;
@@ -24,7 +23,7 @@ javascript<script>
   let isHovering = false;
   let demoActive = false;
   let demoProgress = 0;
-  let hasPlayedOnce = false;
+  let triggered = false;
   let repeatInterval = null;
   
   function resize() {
@@ -74,11 +73,10 @@ javascript<script>
   
   function startDemo() {
     if (demoActive) return;
-    
     demoActive = true;
     demoProgress = 0;
     trail = [];
-    velocity = 8;
+    velocity = 10;
     
     const startPos = getDemoPosition(0);
     smoothMouse.x = startPos.x;
@@ -223,35 +221,33 @@ javascript<script>
     });
   }
   
-  // Trigger when .fx top edge hits center of viewport
-  // rootMargin: "-50% 0px -50% 0px" creates a 1px line at viewport center
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        if (!hasPlayedOnce) {
-          hasPlayedOnce = true;
-          setTimeout(startDemo, 300);
-        }
-        
-        if (isTouchDevice && !repeatInterval) {
-          repeatInterval = setInterval(() => {
-            if (!demoActive) startDemo();
-          }, 6000);
-        }
-      } else {
-        if (repeatInterval) {
-          clearInterval(repeatInterval);
-          repeatInterval = null;
-        }
+  // Scroll trigger - when top of .fx hits center of viewport
+  function checkScroll() {
+    const rect = parent.getBoundingClientRect();
+    const viewportCenter = window.innerHeight / 2;
+    const inZone = rect.top < viewportCenter && rect.bottom > viewportCenter;
+    
+    if (inZone && !triggered && !demoActive) {
+      triggered = true;
+      setTimeout(startDemo, 200);
+      
+      if (isTouchDevice && !repeatInterval) {
+        repeatInterval = setInterval(() => {
+          if (!demoActive) startDemo();
+        }, 6000);
       }
-    });
-  }, { 
-    threshold: 0,
-    rootMargin: '-50% 0px -50% 0px'
-  });
+    }
+    
+    if (!inZone && triggered) {
+      triggered = false;
+      if (repeatInterval) {
+        clearInterval(repeatInterval);
+        repeatInterval = null;
+      }
+    }
+  }
   
-  observer.observe(parent);
-  
+  window.addEventListener('scroll', checkScroll);
   window.addEventListener('resize', resize);
   
   resize();
