@@ -1,14 +1,7 @@
 
 (function() {
-  console.log('Script loaded');
-  
   const canvas = document.querySelector('.fx-c');
-  if (!canvas) {
-    console.log('No canvas found');
-    return;
-  }
-  
-  console.log('Canvas found');
+  if (!canvas) return;
   
   const ctx = canvas.getContext('2d');
   const parent = canvas.parentElement;
@@ -16,10 +9,9 @@
   const DOT_COLOR = [255, 130, 250];
   const DOT_RADIUS = 2;
   const DOT_SPACING = 22;
-  const SMOOTHING = 0.06;
+  const SMOOTHING = 0.08;
   
   const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  console.log('Touch device:', isTouchDevice);
   
   let width, height;
   let canvasRect;
@@ -31,8 +23,6 @@
   let isHovering = false;
   let demoActive = false;
   let demoProgress = 0;
-  let isInView = false;
-  let demoInterval = null;
   
   function resize() {
     const rect = parent.getBoundingClientRect();
@@ -57,26 +47,21 @@
         });
       }
     }
-    console.log('Resized:', width, height, 'Dots:', dots.length);
   }
   
   function getDemoPosition(t) {
-    const eased = t < 0.5 
-      ? 2 * t * t 
-      : 1 - Math.pow(-2 * t + 2, 2) / 2;
-    
     let x, y;
     
-    if (eased < 0.33) {
-      const segmentT = eased / 0.33;
+    if (t < 0.33) {
+      const segmentT = t / 0.33;
       x = width * 0.25 + (width * 0.5) * segmentT;
       y = height * 0.35;
-    } else if (eased < 0.66) {
-      const segmentT = (eased - 0.33) / 0.33;
+    } else if (t < 0.66) {
+      const segmentT = (t - 0.33) / 0.33;
       x = width * 0.75 - (width * 0.5) * segmentT;
       y = height * 0.35 + (height * 0.3) * segmentT;
     } else {
-      const segmentT = (eased - 0.66) / 0.34;
+      const segmentT = (t - 0.66) / 0.34;
       x = width * 0.25 + (width * 0.5) * segmentT;
       y = height * 0.65;
     }
@@ -85,11 +70,10 @@
   }
   
   function startDemo() {
-    console.log('Starting demo');
     demoActive = true;
     demoProgress = 0;
     trail = [];
-    velocity = 0;
+    velocity = 8;
     
     const startPos = getDemoPosition(0);
     smoothMouse.x = startPos.x;
@@ -98,28 +82,10 @@
     mouse.y = startPos.y;
   }
   
-  function updateDemo() {
-    if (!demoActive) return;
-    
-    demoProgress += 0.008;
-    
-    if (demoProgress >= 1) {
-      console.log('Demo finished');
-      demoActive = false;
-      velocity = 0;
-      return;
-    }
-    
-    const pos = getDemoPosition(demoProgress);
-    mouse.x = pos.x;
-    mouse.y = pos.y;
-  }
-  
   function getOpacity(dotX, dotY) {
     if (trail.length < 2) return 0;
     
     let maxOp = 0;
-    
     const headWidth = 40 + velocity * 15;
     const tailWidth = 5 + velocity * 2;
     
@@ -140,7 +106,6 @@
       const dist = Math.sqrt((dotX - nearX) ** 2 + (dotY - nearY) ** 2);
       
       const progress = (i + t) / trail.length;
-      
       const taper = Math.pow(1 - progress, 0.2);
       const trailWidth = tailWidth + (headWidth - tailWidth) * taper;
       
@@ -157,7 +122,6 @@
         }
         
         const trailFade = Math.pow(1 - progress, 0.4);
-        
         maxOp = Math.max(maxOp, edgeFade * trailFade);
       }
     }
@@ -167,8 +131,17 @@
   }
   
   function update() {
+    // Demo update
     if (demoActive) {
-      updateDemo();
+      demoProgress += 0.006;
+      
+      if (demoProgress >= 1) {
+        demoActive = false;
+      } else {
+        const pos = getDemoPosition(demoProgress);
+        mouse.x = pos.x;
+        mouse.y = pos.y;
+      }
     }
     
     smoothMouse.x += (mouse.x - smoothMouse.x) * SMOOTHING;
@@ -187,7 +160,6 @@
       velocity += (newVel - velocity) * 0.04;
     }
     
-    // Always add trail during demo
     if (isHovering || demoActive) {
       const dist = trail.length > 0 
         ? Math.sqrt((smoothMouse.x - trail[0].x) ** 2 + (smoothMouse.y - trail[0].y) ** 2)
@@ -198,10 +170,10 @@
       }
     }
     
-    const maxLen = 15 + velocity * 4;
+    const maxLen = 20 + velocity * 5;
     while (trail.length > maxLen) trail.pop();
     
-    if (!demoActive && velocity < 1 && trail.length > 2) {
+    if (!demoActive && velocity < 1 && trail.length > 0) {
       trail.pop();
     }
   }
@@ -228,7 +200,6 @@
       if (demoActive) return;
       
       canvasRect = parent.getBoundingClientRect();
-      
       mouse.x = e.clientX - canvasRect.left;
       mouse.y = e.clientY - canvasRect.top;
       
@@ -248,42 +219,27 @@
     });
   }
   
+  // Observe for when section is in view
   const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      console.log('Intersection:', entry.isIntersecting, entry.intersectionRatio);
+    if (entries[0].isIntersecting) {
+      setTimeout(startDemo, 500);
       
-      isInView = entry.isIntersecting && entry.intersectionRatio > 0.3;
-      
-      if (isInView) {
-        console.log('In view - starting demo in 400ms');
-        setTimeout(startDemo, 400);
-        
-        if (isTouchDevice && !demoInterval) {
-          demoInterval = setInterval(() => {
-            if (isInView) startDemo();
-          }, 5000);
-        }
-      } else {
-        if (demoInterval) {
-          clearInterval(demoInterval);
-          demoInterval = null;
-        }
+      // Repeat for touch devices
+      if (isTouchDevice) {
+        setInterval(() => {
+          if (!demoActive) startDemo();
+        }, 6000);
       }
-    });
-  }, {
-    threshold: [0.3]
-  });
+    }
+  }, { threshold: 0.2 });
   
   observer.observe(parent);
   
   window.addEventListener('resize', resize);
-  window.addEventListener('scroll', () => {
-    canvasRect = parent.getBoundingClientRect();
-  });
   
   resize();
   draw();
   
-  console.log('Init complete');
+  // Force demo on load for testing
+  setTimeout(startDemo, 1000);
 })();
-
