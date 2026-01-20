@@ -6,9 +6,9 @@
   const parent = canvas.parentElement;
   
   const DOT_COLOR = [255, 130, 250];
-  const DOT_RADIUS = 2;
-  const DOT_SPACING = 22;
-  const SMOOTHING = 0.08;
+  const DOT_RADIUS = 1.5;
+  const DOT_SPACING = 24;
+  const SMOOTHING = 0.12;
   
   let width, height;
   let canvasRect;
@@ -55,9 +55,7 @@
     const top = height * 0.2;
     const bottom = height * 0.8;
     
-    // Z shape: top-left → top-right → bottom-left → bottom-right
     if (t < 0.33) {
-      // Top horizontal: left to right
       const segT = t / 0.33;
       const eased = segT < 0.5 ? 2 * segT * segT : 1 - Math.pow(-2 * segT + 2, 2) / 2;
       return {
@@ -65,15 +63,12 @@
         y: top
       };
     } else if (t < 0.66) {
-      // Diagonal: top-right to bottom-left
       const segT = (t - 0.33) / 0.33;
-      const eased = segT;
       return {
-        x: right - (right - left) * eased,
-        y: top + (bottom - top) * eased
+        x: right - (right - left) * segT,
+        y: top + (bottom - top) * segT
       };
     } else {
-      // Bottom horizontal: left to right
       const segT = (t - 0.66) / 0.34;
       const eased = segT < 0.5 ? 2 * segT * segT : 1 - Math.pow(-2 * segT + 2, 2) / 2;
       return {
@@ -86,9 +81,12 @@
   function startDemo() {
     if (demoPlayed || demoActive) return;
     
+    console.log('Demo starting');
+    
     demoActive = true;
     demoProgress = 0;
     trail = [];
+    velocity = 5;
     
     const startPos = getDemoPosition(0);
     smoothMouse.x = startPos.x;
@@ -100,20 +98,17 @@
   function updateDemo() {
     if (!demoActive) return;
     
-    demoProgress += 0.012;
+    demoProgress += 0.015;
     
     if (demoProgress >= 1) {
       demoActive = false;
       demoPlayed = true;
-      velocity = 0;
       return;
     }
     
     const pos = getDemoPosition(demoProgress);
     mouse.x = pos.x;
     mouse.y = pos.y;
-    
-    isHovering = true;
   }
   
   function getOpacity(dotX, dotY) {
@@ -121,8 +116,8 @@
     
     let maxOp = 0;
     
-    const headWidth = 35 + velocity * 12;
-    const tailWidth = 3 + velocity * 1;
+    const headWidth = 30 + velocity * 8;
+    const tailWidth = 2;
     
     for (let i = 0; i < trail.length - 1; i++) {
       const p1 = trail[i];
@@ -142,30 +137,30 @@
       
       const progress = (i + t) / trail.length;
       
-      // Steeper taper for quicker size reduction
-      const taper = Math.pow(1 - progress, 0.4);
+      // Much steeper taper - shrinks fast
+      const taper = Math.pow(1 - progress, 0.8);
       const trailWidth = tailWidth + (headWidth - tailWidth) * taper;
       
       if (dist < trailWidth) {
         const normalizedDist = dist / trailWidth;
-        const solidCore = 0.3;
+        const solidCore = 0.2;
         
         let edgeFade;
         if (normalizedDist < solidCore) {
           edgeFade = 1;
         } else {
           const edgeProgress = (normalizedDist - solidCore) / (1 - solidCore);
-          edgeFade = Math.pow(1 - edgeProgress, 2.5);
+          edgeFade = Math.pow(1 - edgeProgress, 3);
         }
         
-        // Faster trail fade
-        const trailFade = Math.pow(1 - progress, 0.6);
+        // Much faster trail fade
+        const trailFade = Math.pow(1 - progress, 1.2);
         
         maxOp = Math.max(maxOp, edgeFade * trailFade);
       }
     }
     
-    const velFade = Math.min(1, velocity / 5);
+    const velFade = Math.min(1, velocity / 4);
     return maxOp * velFade;
   }
   
@@ -185,9 +180,9 @@
     const newVel = Math.sqrt(vx * vx + vy * vy);
     
     if (newVel > velocity) {
-      velocity += (newVel - velocity) * 0.25;
+      velocity += (newVel - velocity) * 0.3;
     } else {
-      velocity += (newVel - velocity) * 0.08;
+      velocity += (newVel - velocity) * 0.15;
     }
     
     if (isHovering || demoActive) {
@@ -200,20 +195,14 @@
       }
     }
     
-    // Shorter max trail length
-    const maxLen = 12 + velocity * 3;
+    // Short trail
+    const maxLen = 8 + velocity * 2;
     while (trail.length > maxLen) trail.pop();
     
-    // Faster trail shrink when slow
-    if (velocity < 1.5 && trail.length > 2) {
+    // Aggressive shrink when slow
+    if (velocity < 2 && trail.length > 2) {
       trail.pop();
-      if (velocity < 0.5 && trail.length > 2) {
-        trail.pop();
-      }
-    }
-    
-    if (demoActive) {
-      isHovering = false;
+      trail.pop();
     }
   }
   
@@ -257,29 +246,25 @@
     }
   });
   
-  // Check on scroll if canvas top has passed viewport center
   function checkDemoTrigger() {
     if (demoPlayed || demoActive) return;
     
     const rect = canvas.getBoundingClientRect();
     const viewportCenter = window.innerHeight / 2;
     
-    // Trigger when canvas top passes the viewport center
+    console.log('Canvas top:', rect.top, 'Viewport center:', viewportCenter);
+    
     if (rect.top <= viewportCenter) {
-      setTimeout(startDemo, 300);
+      startDemo();
     }
   }
   
-  window.addEventListener('scroll', () => {
-    canvasRect = parent.getBoundingClientRect();
-    checkDemoTrigger();
-  });
-  
+  window.addEventListener('scroll', checkDemoTrigger);
   window.addEventListener('resize', resize);
   
   resize();
   draw();
   
-  // Check on load in case already scrolled
-  checkDemoTrigger();
+  // Check immediately
+  setTimeout(checkDemoTrigger, 100);
 })();
