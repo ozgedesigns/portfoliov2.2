@@ -1,4 +1,3 @@
-
 (function() {
   const canvas = document.querySelector('.fx-c');
   if (!canvas) return;
@@ -11,6 +10,9 @@
   const DOT_SPACING = 22;
   const SMOOTHING = 0.06;
   
+  // Detect touch device
+  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  
   let width, height;
   let canvasRect;
   let dots = [];
@@ -19,9 +21,10 @@
   let smoothMouse = { x: 0, y: 0 };
   let velocity = 0;
   let isHovering = false;
-  let demoPlayed = false;
   let demoActive = false;
   let demoProgress = 0;
+  let isInView = false;
+  let demoInterval = null;
   
   function resize() {
     const rect = parent.getBoundingClientRect();
@@ -48,38 +51,58 @@
     }
   }
   
-  // Demo path - medium curve
+  // Z-pattern path
   function getDemoPosition(t) {
+    // Ease the overall progress
     const eased = t < 0.5 
-      ? 4 * t * t * t 
-      : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      ? 2 * t * t 
+      : 1 - Math.pow(-2 * t + 2, 2) / 2;
     
-    const x = width * 0.3 + (width * 0.4) * eased;
-    const y = height * 0.6 - (height * 0.2) * eased + Math.sin(eased * Math.PI * 1.5) * 50;
+    // Z has 3 segments: top-left to top-right, diagonal, bottom-left to bottom-right
+    let x, y;
+    
+    if (eased < 0.33) {
+      // First stroke: left to right at top
+      const segmentT = eased / 0.33;
+      x = width * 0.25 + (width * 0.5) * segmentT;
+      y = height * 0.35;
+    } else if (eased < 0.66) {
+      // Diagonal: top-right to bottom-left
+      const segmentT = (eased - 0.33) / 0.33;
+      x = width * 0.75 - (width * 0.5) * segmentT;
+      y = height * 0.35 + (height * 0.3) * segmentT;
+    } else {
+      // Third stroke: left to right at bottom
+      const segmentT = (eased - 0.66) / 0.34;
+      x = width * 0.25 + (width * 0.5) * segmentT;
+      y = height * 0.65;
+    }
     
     return { x, y };
   }
   
   function startDemo() {
-    if (demoPlayed || demoActive) return;
+    if (demoActive) return;
     
     demoActive = true;
     demoProgress = 0;
     trail = [];
+    velocity = 0;
     
     const startPos = getDemoPosition(0);
     smoothMouse.x = startPos.x;
     smoothMouse.y = startPos.y;
+    mouse.x = startPos.x;
+    mouse.y = startPos.y;
   }
   
   function updateDemo() {
     if (!demoActive) return;
     
-    demoProgress += 0.01;
+    demoProgress += 0.008;
     
     if (demoProgress >= 1) {
       demoActive = false;
-      demoPlayed = true;
       velocity = 0;
       return;
     }
@@ -87,8 +110,6 @@
     const pos = getDemoPosition(demoProgress);
     mouse.x = pos.x;
     mouse.y = pos.y;
-    
-    isHovering = true;
   }
   
   function getOpacity(dotX, dotY) {
@@ -179,10 +200,6 @@
     if (velocity < 1 && trail.length > 2) {
       trail.pop();
     }
-    
-    if (demoActive) {
-      isHovering = false;
-    }
   }
   
   function draw() {
@@ -202,33 +219,53 @@
     requestAnimationFrame(draw);
   }
   
-  document.addEventListener('mousemove', (e) => {
-    if (demoActive) return;
-    
-    canvasRect = parent.getBoundingClientRect();
-    
-    mouse.x = e.clientX - canvasRect.left;
-    mouse.y = e.clientY - canvasRect.top;
-    
-    const wasHovering = isHovering;
-    isHovering = mouse.x >= 0 && mouse.x <= width && mouse.y >= 0 && mouse.y <= height;
-    
-    if (isHovering && !wasHovering) {
-      smoothMouse.x = mouse.x;
-      smoothMouse.y = mouse.y;
-      trail = [];
-    }
-    
-    if (!isHovering && wasHovering) {
-      velocity = 0;
-      trail = [];
-    }
-  });
+  // Only add mouse events for non-touch devices
+  if (!isTouchDevice) {
+    document.addEventListener('mousemove', (e) => {
+      if (demoActive) return;
+      
+      canvasRect = parent.getBoundingClientRect();
+      
+      mouse.x = e.clientX - canvasRect.left;
+      mouse.y = e.clientY - canvasRect.top;
+      
+      const wasHovering = isHovering;
+      isHovering = mouse.x >= 0 && mouse.x <= width && mouse.y >= 0 && mouse.y <= height;
+      
+      if (isHovering && !wasHovering) {
+        smoothMouse.x = mouse.x;
+        smoothMouse.y = mouse.y;
+        trail = [];
+      }
+      
+      if (!isHovering && wasHovering) {
+        velocity = 0;
+        trail = [];
+      }
+    });
+  }
   
+  // Intersection Observer
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
-      if (entry.isIntersecting && entry.intersectionRatio > 0.3) {
+      isInView = entry.isIntersecting && entry.intersectionRatio > 0.3;
+      
+      if (isInView) {
+        // First demo after entering view
         setTimeout(startDemo, 400);
+        
+        // For touch devices, repeat every 5 seconds
+        if (isTouchDevice && !demoInterval) {
+          demoInterval = setInterval(() => {
+            if (isInView) startDemo();
+          }, 5000);
+        }
+      } else {
+        // Clear interval when out of view
+        if (demoInterval) {
+          clearInterval(demoInterval);
+          demoInterval = null;
+        }
       }
     });
   }, {
