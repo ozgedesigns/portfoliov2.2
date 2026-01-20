@@ -1,4 +1,5 @@
-
+Smart - trigger when the canvas itself hits the center of the viewport. Use rootMargin to shift the detection zone:
+javascript<script>
 (function() {
   const canvas = document.querySelector('.fx-c');
   if (!canvas) return;
@@ -222,26 +223,22 @@
     });
   }
   
-  // Observe the section, not the canvas parent
-  const section = document.querySelector('.sec.is-works') || parent;
-  
+  // Trigger when .fx top edge hits center of viewport
+  // rootMargin: "-50% 0px -50% 0px" creates a 1px line at viewport center
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
-        // First time entering view - play demo once
         if (!hasPlayedOnce) {
           hasPlayedOnce = true;
-          setTimeout(startDemo, 400);
+          setTimeout(startDemo, 300);
         }
         
-        // For touch devices - repeat every 6 seconds while in view
         if (isTouchDevice && !repeatInterval) {
           repeatInterval = setInterval(() => {
             if (!demoActive) startDemo();
           }, 6000);
         }
       } else {
-        // Out of view - clear repeat interval
         if (repeatInterval) {
           clearInterval(repeatInterval);
           repeatInterval = null;
@@ -249,11 +246,11 @@
       }
     });
   }, { 
-    threshold: 0.15,
-    rootMargin: '0px'
+    threshold: 0,
+    rootMargin: '-50% 0px -50% 0px'
   });
   
-  observer.observe(section);
+  observer.observe(parent);
   
   window.addEventListener('resize', resize);
   
