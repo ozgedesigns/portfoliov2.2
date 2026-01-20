@@ -1,4 +1,7 @@
 (function() {
+  // Only run on desktop (above tablet breakpoint)
+  if (window.innerWidth < 992) return;
+  
   const canvas = document.querySelector('.fx-c');
   if (!canvas) return;
   
@@ -8,7 +11,7 @@
   const DOT_COLOR = [255, 130, 250];
   const DOT_RADIUS = 2;
   const DOT_SPACING = 22;
-  const SMOOTHING = 0.06;
+  const SMOOTHING = 0.08;
   
   let width, height;
   let canvasRect;
@@ -23,6 +26,13 @@
   let demoProgress = 0;
   
   function resize() {
+    // Stop everything if resized to tablet/mobile
+    if (window.innerWidth < 992) {
+      canvas.style.display = 'none';
+      return;
+    }
+    canvas.style.display = '';
+    
     const rect = parent.getBoundingClientRect();
     width = rect.width;
     height = rect.height;
@@ -47,16 +57,40 @@
     }
   }
   
-  // Demo path - medium curve
+  // Z-shape path
   function getDemoPosition(t) {
-    const eased = t < 0.5 
-      ? 4 * t * t * t 
-      : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const padding = 0.15;
+    const left = width * padding;
+    const right = width * (1 - padding);
+    const top = height * 0.2;
+    const bottom = height * 0.8;
     
-    const x = width * 0.3 + (width * 0.4) * eased;
-    const y = height * 0.6 - (height * 0.2) * eased + Math.sin(eased * Math.PI * 1.5) * 50;
-    
-    return { x, y };
+    // Z shape: top-left → top-right → bottom-left → bottom-right
+    if (t < 0.33) {
+      // Top horizontal: left to right
+      const segT = t / 0.33;
+      const eased = segT < 0.5 ? 2 * segT * segT : 1 - Math.pow(-2 * segT + 2, 2) / 2;
+      return {
+        x: left + (right - left) * eased,
+        y: top
+      };
+    } else if (t < 0.66) {
+      // Diagonal: top-right to bottom-left
+      const segT = (t - 0.33) / 0.33;
+      const eased = segT; // linear for diagonal
+      return {
+        x: right - (right - left) * eased,
+        y: top + (bottom - top) * eased
+      };
+    } else {
+      // Bottom horizontal: left to right
+      const segT = (t - 0.66) / 0.34;
+      const eased = segT < 0.5 ? 2 * segT * segT : 1 - Math.pow(-2 * segT + 2, 2) / 2;
+      return {
+        x: left + (right - left) * eased,
+        y: bottom
+      };
+    }
   }
   
   function startDemo() {
@@ -69,12 +103,14 @@
     const startPos = getDemoPosition(0);
     smoothMouse.x = startPos.x;
     smoothMouse.y = startPos.y;
+    mouse.x = startPos.x;
+    mouse.y = startPos.y;
   }
   
   function updateDemo() {
     if (!demoActive) return;
     
-    demoProgress += 0.01;
+    demoProgress += 0.012;
     
     if (demoProgress >= 1) {
       demoActive = false;
@@ -95,8 +131,8 @@
     
     let maxOp = 0;
     
-    const headWidth = 40 + velocity * 15;
-    const tailWidth = 5 + velocity * 2;
+    const headWidth = 35 + velocity * 12;
+    const tailWidth = 3 + velocity * 1;
     
     for (let i = 0; i < trail.length - 1; i++) {
       const p1 = trail[i];
@@ -116,22 +152,24 @@
       
       const progress = (i + t) / trail.length;
       
-      const taper = Math.pow(1 - progress, 0.2);
+      // Steeper taper for quicker size reduction
+      const taper = Math.pow(1 - progress, 0.4);
       const trailWidth = tailWidth + (headWidth - tailWidth) * taper;
       
       if (dist < trailWidth) {
         const normalizedDist = dist / trailWidth;
-        const solidCore = 0.4;
+        const solidCore = 0.3;
         
         let edgeFade;
         if (normalizedDist < solidCore) {
           edgeFade = 1;
         } else {
           const edgeProgress = (normalizedDist - solidCore) / (1 - solidCore);
-          edgeFade = Math.pow(1 - edgeProgress, 2);
+          edgeFade = Math.pow(1 - edgeProgress, 2.5);
         }
         
-        const trailFade = Math.pow(1 - progress, 0.4);
+        // Faster trail fade
+        const trailFade = Math.pow(1 - progress, 0.6);
         
         maxOp = Math.max(maxOp, edgeFade * trailFade);
       }
@@ -157,9 +195,9 @@
     const newVel = Math.sqrt(vx * vx + vy * vy);
     
     if (newVel > velocity) {
-      velocity += (newVel - velocity) * 0.2;
+      velocity += (newVel - velocity) * 0.25;
     } else {
-      velocity += (newVel - velocity) * 0.04;
+      velocity += (newVel - velocity) * 0.08;
     }
     
     if (isHovering || demoActive) {
@@ -172,11 +210,16 @@
       }
     }
     
-    const maxLen = 15 + velocity * 4;
+    // Shorter max trail length
+    const maxLen = 12 + velocity * 3;
     while (trail.length > maxLen) trail.pop();
     
-    if (velocity < 1 && trail.length > 2) {
+    // Faster trail shrink when slow
+    if (velocity < 1.5 && trail.length > 2) {
       trail.pop();
+      if (velocity < 0.5 && trail.length > 2) {
+        trail.pop();
+      }
     }
     
     if (demoActive) {
@@ -185,6 +228,12 @@
   }
   
   function draw() {
+    // Skip if on tablet/mobile
+    if (window.innerWidth < 992) {
+      requestAnimationFrame(draw);
+      return;
+    }
+    
     ctx.clearRect(0, 0, width, height);
     update();
     
@@ -202,7 +251,7 @@
   }
   
   document.addEventListener('mousemove', (e) => {
-    if (demoActive) return;
+    if (demoActive || window.innerWidth < 992) return;
     
     canvasRect = parent.getBoundingClientRect();
     
@@ -224,20 +273,30 @@
     }
   });
   
+  // Trigger when: 50% visible OR top passes viewport center
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
-      if (entry.isIntersecting && entry.intersectionRatio > 0.3) {
-        setTimeout(startDemo, 400);
+      if (entry.isIntersecting) {
+        const rect = entry.boundingClientRect;
+        const viewportCenter = window.innerHeight / 2;
+        const topPassedCenter = rect.top <= viewportCenter;
+        const is50PercentVisible = entry.intersectionRatio >= 0.5;
+        
+        if (topPassedCenter || is50PercentVisible) {
+          setTimeout(startDemo, 300);
+        }
       }
     });
   }, {
-    threshold: [0.3]
+    threshold: [0, 0.25, 0.5, 0.75, 1],
+    rootMargin: '0px'
   });
   
   observer.observe(parent);
   
   window.addEventListener('resize', resize);
   window.addEventListener('scroll', () => {
+    if (window.innerWidth < 992) return;
     canvasRect = parent.getBoundingClientRect();
   });
   
