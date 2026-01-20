@@ -1,6 +1,14 @@
+
 (function() {
+  console.log('Script loaded');
+  
   const canvas = document.querySelector('.fx-c');
-  if (!canvas) return;
+  if (!canvas) {
+    console.log('No canvas found');
+    return;
+  }
+  
+  console.log('Canvas found');
   
   const ctx = canvas.getContext('2d');
   const parent = canvas.parentElement;
@@ -10,8 +18,8 @@
   const DOT_SPACING = 22;
   const SMOOTHING = 0.06;
   
-  // Detect touch device
   const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  console.log('Touch device:', isTouchDevice);
   
   let width, height;
   let canvasRect;
@@ -49,30 +57,25 @@
         });
       }
     }
+    console.log('Resized:', width, height, 'Dots:', dots.length);
   }
   
-  // Z-pattern path
   function getDemoPosition(t) {
-    // Ease the overall progress
     const eased = t < 0.5 
       ? 2 * t * t 
       : 1 - Math.pow(-2 * t + 2, 2) / 2;
     
-    // Z has 3 segments: top-left to top-right, diagonal, bottom-left to bottom-right
     let x, y;
     
     if (eased < 0.33) {
-      // First stroke: left to right at top
       const segmentT = eased / 0.33;
       x = width * 0.25 + (width * 0.5) * segmentT;
       y = height * 0.35;
     } else if (eased < 0.66) {
-      // Diagonal: top-right to bottom-left
       const segmentT = (eased - 0.33) / 0.33;
       x = width * 0.75 - (width * 0.5) * segmentT;
       y = height * 0.35 + (height * 0.3) * segmentT;
     } else {
-      // Third stroke: left to right at bottom
       const segmentT = (eased - 0.66) / 0.34;
       x = width * 0.25 + (width * 0.5) * segmentT;
       y = height * 0.65;
@@ -82,8 +85,7 @@
   }
   
   function startDemo() {
-    if (demoActive) return;
-    
+    console.log('Starting demo');
     demoActive = true;
     demoProgress = 0;
     trail = [];
@@ -102,6 +104,7 @@
     demoProgress += 0.008;
     
     if (demoProgress >= 1) {
+      console.log('Demo finished');
       demoActive = false;
       velocity = 0;
       return;
@@ -184,6 +187,7 @@
       velocity += (newVel - velocity) * 0.04;
     }
     
+    // Always add trail during demo
     if (isHovering || demoActive) {
       const dist = trail.length > 0 
         ? Math.sqrt((smoothMouse.x - trail[0].x) ** 2 + (smoothMouse.y - trail[0].y) ** 2)
@@ -197,7 +201,7 @@
     const maxLen = 15 + velocity * 4;
     while (trail.length > maxLen) trail.pop();
     
-    if (velocity < 1 && trail.length > 2) {
+    if (!demoActive && velocity < 1 && trail.length > 2) {
       trail.pop();
     }
   }
@@ -219,7 +223,6 @@
     requestAnimationFrame(draw);
   }
   
-  // Only add mouse events for non-touch devices
   if (!isTouchDevice) {
     document.addEventListener('mousemove', (e) => {
       if (demoActive) return;
@@ -245,23 +248,22 @@
     });
   }
   
-  // Intersection Observer
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
+      console.log('Intersection:', entry.isIntersecting, entry.intersectionRatio);
+      
       isInView = entry.isIntersecting && entry.intersectionRatio > 0.3;
       
       if (isInView) {
-        // First demo after entering view
+        console.log('In view - starting demo in 400ms');
         setTimeout(startDemo, 400);
         
-        // For touch devices, repeat every 5 seconds
         if (isTouchDevice && !demoInterval) {
           demoInterval = setInterval(() => {
             if (isInView) startDemo();
           }, 5000);
         }
       } else {
-        // Clear interval when out of view
         if (demoInterval) {
           clearInterval(demoInterval);
           demoInterval = null;
@@ -281,4 +283,7 @@
   
   resize();
   draw();
+  
+  console.log('Init complete');
 })();
+
