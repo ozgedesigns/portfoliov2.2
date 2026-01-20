@@ -23,6 +23,8 @@
   let isHovering = false;
   let demoActive = false;
   let demoProgress = 0;
+  let hasPlayedOnce = false;
+  let repeatInterval = null;
   
   function resize() {
     const rect = parent.getBoundingClientRect();
@@ -70,6 +72,8 @@
   }
   
   function startDemo() {
+    if (demoActive) return;
+    
     demoActive = true;
     demoProgress = 0;
     trail = [];
@@ -131,7 +135,6 @@
   }
   
   function update() {
-    // Demo update
     if (demoActive) {
       demoProgress += 0.006;
       
@@ -219,27 +222,41 @@
     });
   }
   
-  // Observe for when section is in view
-  const observer = new IntersectionObserver((entries) => {
-    if (entries[0].isIntersecting) {
-      setTimeout(startDemo, 500);
-      
-      // Repeat for touch devices
-      if (isTouchDevice) {
-        setInterval(() => {
-          if (!demoActive) startDemo();
-        }, 6000);
-      }
-    }
-  }, { threshold: 0.2 });
+  // Observe the section, not the canvas parent
+  const section = document.querySelector('.sec.is-works') || parent;
   
-  observer.observe(parent);
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        // First time entering view - play demo once
+        if (!hasPlayedOnce) {
+          hasPlayedOnce = true;
+          setTimeout(startDemo, 400);
+        }
+        
+        // For touch devices - repeat every 6 seconds while in view
+        if (isTouchDevice && !repeatInterval) {
+          repeatInterval = setInterval(() => {
+            if (!demoActive) startDemo();
+          }, 6000);
+        }
+      } else {
+        // Out of view - clear repeat interval
+        if (repeatInterval) {
+          clearInterval(repeatInterval);
+          repeatInterval = null;
+        }
+      }
+    });
+  }, { 
+    threshold: 0.15,
+    rootMargin: '0px'
+  });
+  
+  observer.observe(section);
   
   window.addEventListener('resize', resize);
   
   resize();
   draw();
-  
-  // Force demo on load for testing
-  setTimeout(startDemo, 1000);
 })();
