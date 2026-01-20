@@ -1,4 +1,3 @@
-
 (function() {
   const canvas = document.querySelector('.fx-c');
   if (!canvas) return;
@@ -9,9 +8,7 @@
   const DOT_COLOR = [255, 130, 250];
   const DOT_RADIUS = 2;
   const DOT_SPACING = 22;
-  const SMOOTHING = 0.08;
-  
-  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const SMOOTHING = 0.06;
   
   let width, height;
   let canvasRect;
@@ -21,10 +18,9 @@
   let smoothMouse = { x: 0, y: 0 };
   let velocity = 0;
   let isHovering = false;
+  let demoPlayed = false;
   let demoActive = false;
   let demoProgress = 0;
-  let triggered = false;
-  let repeatInterval = null;
   
   function resize() {
     const rect = parent.getBoundingClientRect();
@@ -51,44 +47,54 @@
     }
   }
   
+  // Demo path - medium curve
   function getDemoPosition(t) {
-    let x, y;
+    const eased = t < 0.5 
+      ? 4 * t * t * t 
+      : 1 - Math.pow(-2 * t + 2, 3) / 2;
     
-    if (t < 0.33) {
-      const segmentT = t / 0.33;
-      x = width * 0.25 + (width * 0.5) * segmentT;
-      y = height * 0.35;
-    } else if (t < 0.66) {
-      const segmentT = (t - 0.33) / 0.33;
-      x = width * 0.75 - (width * 0.5) * segmentT;
-      y = height * 0.35 + (height * 0.3) * segmentT;
-    } else {
-      const segmentT = (t - 0.66) / 0.34;
-      x = width * 0.25 + (width * 0.5) * segmentT;
-      y = height * 0.65;
-    }
+    const x = width * 0.3 + (width * 0.4) * eased;
+    const y = height * 0.6 - (height * 0.2) * eased + Math.sin(eased * Math.PI * 1.5) * 50;
     
     return { x, y };
   }
   
   function startDemo() {
-    if (demoActive) return;
+    if (demoPlayed || demoActive) return;
+    
     demoActive = true;
     demoProgress = 0;
     trail = [];
-    velocity = 10;
     
     const startPos = getDemoPosition(0);
     smoothMouse.x = startPos.x;
     smoothMouse.y = startPos.y;
-    mouse.x = startPos.x;
-    mouse.y = startPos.y;
+  }
+  
+  function updateDemo() {
+    if (!demoActive) return;
+    
+    demoProgress += 0.01;
+    
+    if (demoProgress >= 1) {
+      demoActive = false;
+      demoPlayed = true;
+      velocity = 0;
+      return;
+    }
+    
+    const pos = getDemoPosition(demoProgress);
+    mouse.x = pos.x;
+    mouse.y = pos.y;
+    
+    isHovering = true;
   }
   
   function getOpacity(dotX, dotY) {
     if (trail.length < 2) return 0;
     
     let maxOp = 0;
+    
     const headWidth = 40 + velocity * 15;
     const tailWidth = 5 + velocity * 2;
     
@@ -109,6 +115,7 @@
       const dist = Math.sqrt((dotX - nearX) ** 2 + (dotY - nearY) ** 2);
       
       const progress = (i + t) / trail.length;
+      
       const taper = Math.pow(1 - progress, 0.2);
       const trailWidth = tailWidth + (headWidth - tailWidth) * taper;
       
@@ -125,6 +132,7 @@
         }
         
         const trailFade = Math.pow(1 - progress, 0.4);
+        
         maxOp = Math.max(maxOp, edgeFade * trailFade);
       }
     }
@@ -135,15 +143,7 @@
   
   function update() {
     if (demoActive) {
-      demoProgress += 0.006;
-      
-      if (demoProgress >= 1) {
-        demoActive = false;
-      } else {
-        const pos = getDemoPosition(demoProgress);
-        mouse.x = pos.x;
-        mouse.y = pos.y;
-      }
+      updateDemo();
     }
     
     smoothMouse.x += (mouse.x - smoothMouse.x) * SMOOTHING;
@@ -172,11 +172,15 @@
       }
     }
     
-    const maxLen = 20 + velocity * 5;
+    const maxLen = 15 + velocity * 4;
     while (trail.length > maxLen) trail.pop();
     
-    if (!demoActive && velocity < 1 && trail.length > 0) {
+    if (velocity < 1 && trail.length > 2) {
       trail.pop();
+    }
+    
+    if (demoActive) {
+      isHovering = false;
     }
   }
   
@@ -197,58 +201,45 @@
     requestAnimationFrame(draw);
   }
   
-  if (!isTouchDevice) {
-    document.addEventListener('mousemove', (e) => {
-      if (demoActive) return;
-      
-      canvasRect = parent.getBoundingClientRect();
-      mouse.x = e.clientX - canvasRect.left;
-      mouse.y = e.clientY - canvasRect.top;
-      
-      const wasHovering = isHovering;
-      isHovering = mouse.x >= 0 && mouse.x <= width && mouse.y >= 0 && mouse.y <= height;
-      
-      if (isHovering && !wasHovering) {
-        smoothMouse.x = mouse.x;
-        smoothMouse.y = mouse.y;
-        trail = [];
-      }
-      
-      if (!isHovering && wasHovering) {
-        velocity = 0;
-        trail = [];
+  document.addEventListener('mousemove', (e) => {
+    if (demoActive) return;
+    
+    canvasRect = parent.getBoundingClientRect();
+    
+    mouse.x = e.clientX - canvasRect.left;
+    mouse.y = e.clientY - canvasRect.top;
+    
+    const wasHovering = isHovering;
+    isHovering = mouse.x >= 0 && mouse.x <= width && mouse.y >= 0 && mouse.y <= height;
+    
+    if (isHovering && !wasHovering) {
+      smoothMouse.x = mouse.x;
+      smoothMouse.y = mouse.y;
+      trail = [];
+    }
+    
+    if (!isHovering && wasHovering) {
+      velocity = 0;
+      trail = [];
+    }
+  });
+  
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && entry.intersectionRatio > 0.3) {
+        setTimeout(startDemo, 400);
       }
     });
-  }
+  }, {
+    threshold: [0.3]
+  });
   
-  // Scroll trigger - when top of .fx hits center of viewport
-  function checkScroll() {
-    const rect = parent.getBoundingClientRect();
-    const viewportCenter = window.innerHeight / 2;
-    const inZone = rect.top < viewportCenter && rect.bottom > viewportCenter;
-    
-    if (inZone && !triggered && !demoActive) {
-      triggered = true;
-      setTimeout(startDemo, 200);
-      
-      if (isTouchDevice && !repeatInterval) {
-        repeatInterval = setInterval(() => {
-          if (!demoActive) startDemo();
-        }, 6000);
-      }
-    }
-    
-    if (!inZone && triggered) {
-      triggered = false;
-      if (repeatInterval) {
-        clearInterval(repeatInterval);
-        repeatInterval = null;
-      }
-    }
-  }
+  observer.observe(parent);
   
-  window.addEventListener('scroll', checkScroll);
   window.addEventListener('resize', resize);
+  window.addEventListener('scroll', () => {
+    canvasRect = parent.getBoundingClientRect();
+  });
   
   resize();
   draw();
