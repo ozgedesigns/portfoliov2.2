@@ -9,7 +9,7 @@
   const DOT_RADIUS = 1.5;
   const DOT_SPACING = 24;
   const SMOOTHING = 0.12;
-  const GLOW_RADIUS = 60;
+  const GLOW_RADIUS = 80;
   
   let width, height;
   let canvasRect;
