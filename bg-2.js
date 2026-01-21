@@ -21,6 +21,7 @@
   let demoPlayed = false;
   let demoActive = false;
   let demoProgress = 0;
+  let triggerArmed = false;
   
   function resize() {
     const rect = parent.getBoundingClientRect();
@@ -79,7 +80,7 @@
   }
   
   function startDemo() {
-    if (demoPlayed || demoActive) return;
+    if (demoPlayed || demoActive || !triggerArmed) return;
     
     resize();
     
@@ -242,18 +243,34 @@
     }
   });
   
-  // GSAP ScrollTrigger - #works top hits viewport center
+  window.addEventListener('resize', resize);
+  
+  resize();
+  draw();
+  
+  // Arm trigger after first scroll (not on load)
+  let hasScrolled = false;
+  window.addEventListener('scroll', function armTrigger() {
+    if (!hasScrolled) {
+      hasScrolled = true;
+      // Small delay then arm
+      setTimeout(() => {
+        triggerArmed = true;
+      }, 100);
+    }
+  }, { once: false });
+  
+  // GSAP ScrollTrigger
   gsap.registerPlugin(ScrollTrigger);
   
   ScrollTrigger.create({
     trigger: '#works',
     start: 'top center',
     once: true,
-    onEnter: () => startDemo()
+    onEnter: () => {
+      if (triggerArmed) {
+        startDemo();
+      }
+    }
   });
-  
-  window.addEventListener('resize', resize);
-  
-  resize();
-  draw();
 })();
