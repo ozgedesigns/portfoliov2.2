@@ -136,7 +136,7 @@
           const normalizedDist = dist / trailWidth;
           const solidCore = 0.2;
           let edgeFade = normalizedDist < solidCore ? 1 : Math.pow(1 - (normalizedDist - solidCore) / (1 - solidCore), 3);
-          const trailFade = Math.pow(1 - progress, 1.2);
+          const trailFade = Math.pow(1 - progress, 0.8);
           maxOp = Math.max(maxOp, edgeFade * trailFade * Math.min(1, velocity / 4));
         }
       }
@@ -166,7 +166,7 @@
     
     const maxLen = 8 + velocity * 2;
     while (trail.length > maxLen) trail.pop();
-    if (velocity < 2 && trail.length > 2) { trail.pop(); trail.pop(); }
+    if (velocity < 2 && trail.length > 2) { trail.pop(); }
   }
   
   function draw() {
