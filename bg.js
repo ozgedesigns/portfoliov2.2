@@ -82,6 +82,8 @@
   function startDemo() {
     if (demoPlayed || demoActive) return;
     
+    resize();
+    
     demoActive = true;
     demoProgress = 0;
     trail = [];
@@ -241,18 +243,22 @@
     }
   });
   
-  function checkDemoTrigger() {
-    if (demoPlayed || demoActive || !triggerSection) return;
+  // Use IntersectionObserver - triggers when top of #works hits center of viewport
+  if (triggerSection) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          startDemo();
+          observer.disconnect();
+        }
+      });
+    }, {
+      rootMargin: '-50% 0px -50% 0px'
+    });
     
-    const rect = triggerSection.getBoundingClientRect();
-    const viewportCenter = window.innerHeight / 2;
-    
-    if (rect.top <= viewportCenter) {
-      startDemo();
-    }
+    observer.observe(triggerSection);
   }
   
-  window.addEventListener('scroll', checkDemoTrigger);
   window.addEventListener('resize', resize);
   
   resize();
