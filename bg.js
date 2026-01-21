@@ -8,7 +8,7 @@
   const DOT_COLOR = [255, 130, 250];
   const DOT_RADIUS = 1;
   const DOT_SPACING = 24;
-  const SMOOTHING = 0.10;
+  const SMOOTHING = 0.08;
   const GLOW_RADIUS = 120;
   
   let width, height;
