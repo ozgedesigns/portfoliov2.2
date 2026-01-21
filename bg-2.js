@@ -4,10 +4,11 @@
   
   const ctx = canvas.getContext('2d');
   const parent = canvas.parentElement;
+  const triggerSection = document.getElementById('works');
   
   const DOT_COLOR = [255, 130, 250];
-  const DOT_RADIUS = 1.5;
-  const DOT_SPACING = 24;
+  const DOT_RADIUS = 2;
+  const DOT_SPACING = 22;
   const SMOOTHING = 0.12;
   
   let width, height;
@@ -81,8 +82,6 @@
   function startDemo() {
     if (demoPlayed || demoActive) return;
     
-    console.log('Demo starting');
-    
     demoActive = true;
     demoProgress = 0;
     trail = [];
@@ -137,7 +136,6 @@
       
       const progress = (i + t) / trail.length;
       
-      // Much steeper taper - shrinks fast
       const taper = Math.pow(1 - progress, 0.8);
       const trailWidth = tailWidth + (headWidth - tailWidth) * taper;
       
@@ -153,7 +151,6 @@
           edgeFade = Math.pow(1 - edgeProgress, 3);
         }
         
-        // Much faster trail fade
         const trailFade = Math.pow(1 - progress, 1.2);
         
         maxOp = Math.max(maxOp, edgeFade * trailFade);
@@ -195,11 +192,9 @@
       }
     }
     
-    // Short trail
     const maxLen = 8 + velocity * 2;
     while (trail.length > maxLen) trail.pop();
     
-    // Aggressive shrink when slow
     if (velocity < 2 && trail.length > 2) {
       trail.pop();
       trail.pop();
@@ -247,12 +242,10 @@
   });
   
   function checkDemoTrigger() {
-    if (demoPlayed || demoActive) return;
+    if (demoPlayed || demoActive || !triggerSection) return;
     
-    const rect = canvas.getBoundingClientRect();
+    const rect = triggerSection.getBoundingClientRect();
     const viewportCenter = window.innerHeight / 2;
-    
-    console.log('Canvas top:', rect.top, 'Viewport center:', viewportCenter);
     
     if (rect.top <= viewportCenter) {
       startDemo();
@@ -264,7 +257,4 @@
   
   resize();
   draw();
-  
-  // Check immediately
-  setTimeout(checkDemoTrigger, 100);
 })();
