@@ -23,6 +23,8 @@
   let demoPlayed = false;
   let demoActive = false;
   let demoProgress = 0;
+  let fadeOpacity = 1;
+  let demoFading = false;
   
   function resize() {
     const rect = parent.getBoundingClientRect();
@@ -75,19 +77,22 @@
     demoActive = true;
     demoProgress = 0;
     trail = [];
-    velocity = 5;
+    velocity = 3;
+    fadeOpacity = 1;
     const startPos = getDemoPosition(0);
     smoothMouse.x = startPos.x;
     smoothMouse.y = startPos.y;
     mouse.x = startPos.x;
     mouse.y = startPos.y;
   }
-  
-  let demoFading = false;
 
   function updateDemo() {
     if (!demoActive) return;
-    demoProgress += 0.015;
+    
+    // Slow down near the end
+    const speed = demoProgress > 0.85 ? 0.008 : 0.015;
+    demoProgress += speed;
+    
     if (demoProgress >= 1) {
       demoActive = false;
       demoPlayed = true;
@@ -110,7 +115,7 @@
     let maxOp = 0;
     
     // Static glow around cursor
-    if (isHovering || demoActive) {
+    if (isHovering || demoActive || demoFading) {
       const dx = dotX - smoothMouse.x;
       const dy = dotY - smoothMouse.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -122,7 +127,7 @@
     
     // Trail effect
     if (trail.length >= 2) {
-      const headWidth = 30 + velocity * 8;
+      const headWidth = 20 + velocity * 5;
       const tailWidth = 2;
       
       for (let i = 0; i < trail.length - 1; i++) {
@@ -153,11 +158,24 @@
       }
     }
     
-    return maxOp;
+    return maxOp * fadeOpacity;
   }
   
   function update() {
     if (demoActive) updateDemo();
+    
+    // Gradual fade after demo
+    if (demoFading) {
+      fadeOpacity -= 0.02;
+      if (fadeOpacity <= 0) {
+        fadeOpacity = 0;
+        demoFading = false;
+        trail = [];
+        velocity = 0;
+      }
+    } else if (!demoActive && !demoFading) {
+      fadeOpacity = 1;
+    }
     
     smoothMouse.x += (mouse.x - smoothMouse.x) * SMOOTHING;
     smoothMouse.y += (mouse.y - smoothMouse.y) * SMOOTHING;
@@ -178,12 +196,6 @@
     const maxLen = 15 + velocity * 3;
     while (trail.length > maxLen) trail.pop();
     if (velocity < 2 && trail.length > 2) trail.pop();
-    
-    // Gradual fade after demo
-    if (demoFading && trail.length > 0) {
-      trail.pop();
-      if (trail.length === 0) demoFading = false;
-    }
   }
   
   function draw() {
