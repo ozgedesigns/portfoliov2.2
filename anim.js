@@ -6,17 +6,15 @@
   const parent = canvas.parentElement;
   
   const DOT_COLOR = [255, 130, 250];
-  const DOT_RADIUS = 10;
-  const DOT_SPACING = 24;
+  const DOT_RADIUS = 2;
+  const DOT_SPACING = 22;
   const SMOOTHING = 0.06;
-  const GLOW_RADIUS = 120;
   
   let width, height;
   let canvasRect;
   let dots = [];
   let trail = [];
   let mouse = { x: 0, y: 0 };
-  let clientMouse = { x: 0, y: 0 };
   let smoothMouse = { x: 0, y: 0 };
   let velocity = 0;
   let isHovering = false;
@@ -49,115 +47,104 @@
     }
   }
   
+  // Demo path - medium curve
   function getDemoPosition(t) {
-    const padding = 0.15;
-    const left = width * padding;
-    const right = width * (1 - padding);
-    const top = height * 0.2;
-    const bottom = height * 0.8;
+    const eased = t < 0.5 
+      ? 4 * t * t * t 
+      : 1 - Math.pow(-2 * t + 2, 3) / 2;
     
-    if (t < 0.33) {
-      const segT = t / 0.33;
-      const eased = segT < 0.5 ? 2 * segT * segT : 1 - Math.pow(-2 * segT + 2, 2) / 2;
-      return { x: left + (right - left) * eased, y: top };
-    } else if (t < 0.66) {
-      const segT = (t - 0.33) / 0.33;
-      return { x: right - (right - left) * segT, y: top + (bottom - top) * segT };
-    } else {
-      const segT = (t - 0.66) / 0.34;
-      const eased = segT < 0.5 ? 2 * segT * segT : 1 - Math.pow(-2 * segT + 2, 2) / 2;
-      return { x: left + (right - left) * eased, y: bottom };
-    }
+    const x = width * 0.3 + (width * 0.4) * eased;
+    const y = height * 0.6 - (height * 0.2) * eased + Math.sin(eased * Math.PI * 1.5) * 50;
+    
+    return { x, y };
   }
   
   function startDemo() {
     if (demoPlayed || demoActive) return;
+    
     demoActive = true;
     demoProgress = 0;
     trail = [];
-    velocity = 5;
+    
     const startPos = getDemoPosition(0);
     smoothMouse.x = startPos.x;
     smoothMouse.y = startPos.y;
-    mouse.x = startPos.x;
-    mouse.y = startPos.y;
   }
   
-  let demoFading = false;
-
   function updateDemo() {
     if (!demoActive) return;
-    demoProgress += 0.015;
+    
+    demoProgress += 0.01;
+    
     if (demoProgress >= 1) {
       demoActive = false;
       demoPlayed = true;
-      demoFading = true;
+      velocity = 0;
       return;
     }
+    
     const pos = getDemoPosition(demoProgress);
     mouse.x = pos.x;
     mouse.y = pos.y;
-  }
-  
-  function updateMousePosition() {
-    canvasRect = parent.getBoundingClientRect();
-    mouse.x = clientMouse.x - canvasRect.left;
-    mouse.y = clientMouse.y - canvasRect.top;
-    isHovering = mouse.x >= 0 && mouse.x <= width && mouse.y >= 0 && mouse.y <= height;
+    
+    isHovering = true;
   }
   
   function getOpacity(dotX, dotY) {
+    if (trail.length < 2) return 0;
+    
     let maxOp = 0;
     
-    // Static glow around cursor
-    if (isHovering || demoActive) {
-      const dx = dotX - smoothMouse.x;
-      const dy = dotY - smoothMouse.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < GLOW_RADIUS) {
-        const glowOp = Math.pow(1 - dist / GLOW_RADIUS, 2) * 0.5;
-        maxOp = Math.max(maxOp, glowOp);
-      }
-    }
+    const headWidth = 40 + velocity * 15;
+    const tailWidth = 5 + velocity * 2;
     
-    // Trail effect
-    if (trail.length >= 2) {
-      const headWidth = 30 + velocity * 8;
-      const tailWidth = 2;
+    for (let i = 0; i < trail.length - 1; i++) {
+      const p1 = trail[i];
+      const p2 = trail[i + 1];
       
-      for (let i = 0; i < trail.length - 1; i++) {
-        const p1 = trail[i];
-        const p2 = trail[i + 1];
-        const dx = p2.x - p1.x;
-        const dy = p2.y - p1.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (len === 0) continue;
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len === 0) continue;
+      
+      let t = ((dotX - p1.x) * dx + (dotY - p1.y) * dy) / (len * len);
+      t = Math.max(0, Math.min(1, t));
+      
+      const nearX = p1.x + t * dx;
+      const nearY = p1.y + t * dy;
+      const dist = Math.sqrt((dotX - nearX) ** 2 + (dotY - nearY) ** 2);
+      
+      const progress = (i + t) / trail.length;
+      
+      const taper = Math.pow(1 - progress, 0.2);
+      const trailWidth = tailWidth + (headWidth - tailWidth) * taper;
+      
+      if (dist < trailWidth) {
+        const normalizedDist = dist / trailWidth;
+        const solidCore = 0.4;
         
-        let t = ((dotX - p1.x) * dx + (dotY - p1.y) * dy) / (len * len);
-        t = Math.max(0, Math.min(1, t));
-        
-        const nearX = p1.x + t * dx;
-        const nearY = p1.y + t * dy;
-        const dist = Math.sqrt((dotX - nearX) ** 2 + (dotY - nearY) ** 2);
-        const progress = (i + t) / trail.length;
-        const taper = Math.pow(1 - progress, 0.8);
-        const trailWidth = tailWidth + (headWidth - tailWidth) * taper;
-        
-        if (dist < trailWidth) {
-          const normalizedDist = dist / trailWidth;
-          const solidCore = 0.2;
-          let edgeFade = normalizedDist < solidCore ? 1 : Math.pow(1 - (normalizedDist - solidCore) / (1 - solidCore), 3);
-          const trailFade = Math.pow(1 - progress, 0.6);
-          maxOp = Math.max(maxOp, edgeFade * trailFade * Math.min(1, velocity / 4));
+        let edgeFade;
+        if (normalizedDist < solidCore) {
+          edgeFade = 1;
+        } else {
+          const edgeProgress = (normalizedDist - solidCore) / (1 - solidCore);
+          edgeFade = Math.pow(1 - edgeProgress, 2);
         }
+        
+        const trailFade = Math.pow(1 - progress, 0.4);
+        
+        maxOp = Math.max(maxOp, edgeFade * trailFade);
       }
     }
     
-    return maxOp;
+    const velFade = Math.min(1, velocity / 5);
+    return maxOp * velFade;
   }
   
   function update() {
-    if (demoActive) updateDemo();
+    if (demoActive) {
+      updateDemo();
+    }
     
     smoothMouse.x += (mouse.x - smoothMouse.x) * SMOOTHING;
     smoothMouse.y += (mouse.y - smoothMouse.y) * SMOOTHING;
@@ -168,21 +155,32 @@
       vy = smoothMouse.y - trail[0].y;
     }
     const newVel = Math.sqrt(vx * vx + vy * vy);
-    velocity += (newVel - velocity) * (newVel > velocity ? 0.3 : 0.15);
     
-    if (isHovering || demoActive) {
-      const dist = trail.length > 0 ? Math.sqrt((smoothMouse.x - trail[0].x) ** 2 + (smoothMouse.y - trail[0].y) ** 2) : 999;
-      if (dist > 1) trail.unshift({ x: smoothMouse.x, y: smoothMouse.y });
+    if (newVel > velocity) {
+      velocity += (newVel - velocity) * 0.2;
+    } else {
+      velocity += (newVel - velocity) * 0.04;
     }
     
-    const maxLen = 15 + velocity * 3;
-    while (trail.length > maxLen) trail.pop();
-    if (velocity < 2 && trail.length > 2) trail.pop();
+    if (isHovering || demoActive) {
+      const dist = trail.length > 0 
+        ? Math.sqrt((smoothMouse.x - trail[0].x) ** 2 + (smoothMouse.y - trail[0].y) ** 2)
+        : 999;
+      
+      if (dist > 1) {
+        trail.unshift({ x: smoothMouse.x, y: smoothMouse.y });
+      }
+    }
     
-    // Gradual fade after demo
-    if (demoFading && trail.length > 0) {
+    const maxLen = 15 + velocity * 4;
+    while (trail.length > maxLen) trail.pop();
+    
+    if (velocity < 1 && trail.length > 2) {
       trail.pop();
-      if (trail.length === 0) demoFading = false;
+    }
+    
+    if (demoActive) {
+      isHovering = false;
     }
   }
   
@@ -204,39 +202,45 @@
   }
   
   document.addEventListener('mousemove', (e) => {
-    clientMouse.x = e.clientX;
-    clientMouse.y = e.clientY;
-    
     if (demoActive) return;
     
+    canvasRect = parent.getBoundingClientRect();
+    
+    mouse.x = e.clientX - canvasRect.left;
+    mouse.y = e.clientY - canvasRect.top;
+    
     const wasHovering = isHovering;
-    updateMousePosition();
+    isHovering = mouse.x >= 0 && mouse.x <= width && mouse.y >= 0 && mouse.y <= height;
     
     if (isHovering && !wasHovering) {
       smoothMouse.x = mouse.x;
       smoothMouse.y = mouse.y;
       trail = [];
     }
+    
     if (!isHovering && wasHovering) {
       velocity = 0;
       trail = [];
     }
   });
   
-  window.addEventListener('scroll', () => {
-    if (demoActive) return;
-    updateMousePosition();
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && entry.intersectionRatio > 0.3) {
+        setTimeout(startDemo, 400);
+      }
+    });
+  }, {
+    threshold: [0.3]
   });
   
-  gsap.registerPlugin(ScrollTrigger);
-  ScrollTrigger.create({
-    trigger: '#works',
-    start: 'top center',
-    once: true,
-    onEnter: startDemo
-  });
+  observer.observe(parent);
   
   window.addEventListener('resize', resize);
+  window.addEventListener('scroll', () => {
+    canvasRect = parent.getBoundingClientRect();
+  });
+  
   resize();
   draw();
 })();
