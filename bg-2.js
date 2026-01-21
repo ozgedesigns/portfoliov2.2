@@ -4,7 +4,6 @@
   
   const ctx = canvas.getContext('2d');
   const parent = canvas.parentElement;
-  const triggerSection = document.getElementById('works');
   
   const DOT_COLOR = [255, 130, 250];
   const DOT_RADIUS = 2;
@@ -243,21 +242,15 @@
     }
   });
   
-  // Use IntersectionObserver - triggers when top of #works hits center of viewport
-  if (triggerSection) {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          startDemo();
-          observer.disconnect();
-        }
-      });
-    }, {
-      rootMargin: '-50% 0px -50% 0px'
-    });
-    
-    observer.observe(triggerSection);
-  }
+  // GSAP ScrollTrigger - #works top hits viewport center
+  gsap.registerPlugin(ScrollTrigger);
+  
+  ScrollTrigger.create({
+    trigger: '#works',
+    start: 'top center',
+    once: true,
+    onEnter: () => startDemo()
+  });
   
   window.addEventListener('resize', resize);
   
