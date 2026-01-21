@@ -164,7 +164,7 @@
       if (dist > 1) trail.unshift({ x: smoothMouse.x, y: smoothMouse.y });
     }
     
-    const maxLen = 8 + velocity * 2;
+    const maxLen = 12 + velocity * 2;
     while (trail.length > maxLen) trail.pop();
     if (velocity < 2 && trail.length > 2) { trail.pop(); }
   }
