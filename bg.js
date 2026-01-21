@@ -7,15 +7,16 @@
   
   const DOT_COLOR = [255, 130, 250];
   const DOT_RADIUS = 1;
-  const DOT_SPACING = 20;
-  const SMOOTHING = 0.12;
-  const GLOW_RADIUS = 600;
+  const DOT_SPACING = 24;
+  const SMOOTHING = 0.06;
+  const GLOW_RADIUS = 120;
   
   let width, height;
   let canvasRect;
   let dots = [];
   let trail = [];
   let mouse = { x: 0, y: 0 };
+  let clientMouse = { x: 0, y: 0 };
   let smoothMouse = { x: 0, y: 0 };
   let velocity = 0;
   let isHovering = false;
@@ -95,6 +96,13 @@
     mouse.y = pos.y;
   }
   
+  function updateMousePosition() {
+    canvasRect = parent.getBoundingClientRect();
+    mouse.x = clientMouse.x - canvasRect.left;
+    mouse.y = clientMouse.y - canvasRect.top;
+    isHovering = mouse.x >= 0 && mouse.x <= width && mouse.y >= 0 && mouse.y <= height;
+  }
+  
   function getOpacity(dotX, dotY) {
     let maxOp = 0;
     
@@ -136,7 +144,7 @@
           const normalizedDist = dist / trailWidth;
           const solidCore = 0.2;
           let edgeFade = normalizedDist < solidCore ? 1 : Math.pow(1 - (normalizedDist - solidCore) / (1 - solidCore), 3);
-          const trailFade = Math.pow(1 - progress, 0.8);
+          const trailFade = Math.pow(1 - progress, 0.6);
           maxOp = Math.max(maxOp, edgeFade * trailFade * Math.min(1, velocity / 4));
         }
       }
@@ -164,9 +172,9 @@
       if (dist > 1) trail.unshift({ x: smoothMouse.x, y: smoothMouse.y });
     }
     
-    const maxLen = 12 + velocity * 2;
+    const maxLen = 15 + velocity * 3;
     while (trail.length > maxLen) trail.pop();
-    if (velocity < 2 && trail.length > 2) { trail.pop(); }
+    if (velocity < 2 && trail.length > 2) trail.pop();
   }
   
   function draw() {
@@ -187,13 +195,13 @@
   }
   
   document.addEventListener('mousemove', (e) => {
+    clientMouse.x = e.clientX;
+    clientMouse.y = e.clientY;
+    
     if (demoActive) return;
-    canvasRect = parent.getBoundingClientRect();
-    mouse.x = e.clientX - canvasRect.left;
-    mouse.y = e.clientY - canvasRect.top;
     
     const wasHovering = isHovering;
-    isHovering = mouse.x >= 0 && mouse.x <= width && mouse.y >= 0 && mouse.y <= height;
+    updateMousePosition();
     
     if (isHovering && !wasHovering) {
       smoothMouse.x = mouse.x;
@@ -204,6 +212,11 @@
       velocity = 0;
       trail = [];
     }
+  });
+  
+  window.addEventListener('scroll', () => {
+    if (demoActive) return;
+    updateMousePosition();
   });
   
   gsap.registerPlugin(ScrollTrigger);
