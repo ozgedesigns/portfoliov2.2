@@ -89,6 +89,8 @@
     if (demoProgress >= 1) {
       demoActive = false;
       demoPlayed = true;
+      velocity = 0;
+      trail = [];
       return;
     }
     const pos = getDemoPosition(demoProgress);
