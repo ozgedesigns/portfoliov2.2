@@ -83,14 +83,15 @@
     mouse.y = startPos.y;
   }
   
+  let demoFading = false;
+
   function updateDemo() {
     if (!demoActive) return;
     demoProgress += 0.015;
     if (demoProgress >= 1) {
       demoActive = false;
       demoPlayed = true;
-      velocity = 0;
-      trail = [];
+      demoFading = true;
       return;
     }
     const pos = getDemoPosition(demoProgress);
@@ -177,6 +178,12 @@
     const maxLen = 15 + velocity * 3;
     while (trail.length > maxLen) trail.pop();
     if (velocity < 2 && trail.length > 2) trail.pop();
+    
+    // Gradual fade after demo
+    if (demoFading && trail.length > 0) {
+      trail.pop();
+      if (trail.length === 0) demoFading = false;
+    }
   }
   
   function draw() {
